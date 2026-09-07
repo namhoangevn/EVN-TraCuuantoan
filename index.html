@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tra cứu đáp án</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Segoe UI,Arial,sans-serif;background:#f4f6f9;padding:15px}
+.header{text-align:center;margin-bottom:15px}
+.header h1{color:#0066cc;font-size:30px}
+.header p{color:#666;font-size:14px}
+.search-box{background:white;border-radius:15px;padding:15px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin-bottom:15px}
+#search{width:100%;padding:15px;border:2px solid #ddd;border-radius:12px;font-size:18px;outline:none}
+#search:focus{border-color:#0066cc}
+.count{text-align:center;color:#666;margin:10px}
+.result-card{background:white;border-radius:15px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.question{font-weight:bold;color:#222;margin-bottom:10px;line-height:1.5}
+.answer{background:#e8f5e9;border-left:5px solid #4caf50;padding:12px;border-radius:8px;color:#1b5e20;font-weight:bold}
+.answer-index{color:red;font-size:18px;margin-bottom:5px}
+.footer{text-align:center;color:#999;margin-top:20px;font-size:13px}
+mark{background:#fff176;padding:0 2px;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>⚡ TRA CỨU ĐÁP ÁN</h1>
+  <p>Tìm theo từ khóa hoặc chữ cái đầu</p>
+</div>
+
+<div class="search-box">
+  <input type="text" id="search" placeholder="Ví dụ: an toàn điện hoặc ktat..." autocomplete="off">
+</div>
+
+<div class="count" id="count"></div>
+<div id="results"></div>
+
+<div class="footer">Dữ liệu tra cứu nội bộ • Có thể mở trên máy tính và điện thoại</div>
+
+<script>
+let db=[];
+
+function removeAccents(str){
+  return str.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .replace(/đ/g,"d").replace(/Đ/g,"D")
+    .toLowerCase();
+}
+
+function escapeHtml(str){
+  return String(str ?? "").replace(/[&<>"']/g, m => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[m]));
+}
+
+function highlight(text, q){
+  let s=escapeHtml(text);
+  if(!q) return s;
+  // Highlighting is deliberately simple and safe; search itself remains accent-insensitive.
+  return s;
+}
+
+fetch("questions.json")
+.then(r=>{
+  if(!r.ok) throw new Error("Không tải được questions.json");
+  return r.json();
+})
+.then(data=>{
+  db=data;
+  document.getElementById("count").textContent=`Đã nạp ${db.length.toLocaleString("vi-VN")} câu hỏi`;
+})
+.catch(err=>{
+  document.getElementById("count").textContent="Lỗi tải dữ liệu: "+err.message;
+});
+
+document.getElementById("search").addEventListener("input",function(){
+  let query=removeAccents(this.value.trim());
+  let html="";
+  let total=0;
+
+  if(query===""){
+    document.getElementById("results").innerHTML="";
+    document.getElementById("count").innerHTML=
+      `Đã nạp ${db.length.toLocaleString("vi-VN")} câu hỏi`;
+    return;
+  }
+
+  for(let item of db){
+    if((item.question_no_accent||"").includes(query) ||
+       (item.initials||"").includes(query)){
+      let idx=parseInt(item.result)-1;
+      let answer=(idx>=0 && idx<(item.options||[]).length) ? item.options[idx] : "Chưa có đáp án";
+
+      html += `
+      <div class="result-card">
+        <div class="question">${escapeHtml(item.question)}</div>
+        <div class="answer">
+          <div class="answer-index">ĐÁP ÁN ${idx+1}</div>
+          ${escapeHtml(answer)}
+        </div>
+      </div>`;
+      total++;
+      if(total>=20) break;
+    }
+  }
+
+  document.getElementById("count").innerHTML =
+    total>0 ? `Tìm thấy ${total} kết quả${total>=20 ? " (hiển thị 20 kết quả đầu)" : ""}`
+            : "Không tìm thấy";
+  document.getElementById("results").innerHTML=html;
+});
+</script>
+</body>
+</html>
